@@ -1,0 +1,5 @@
+fastapi        # Backend framework
+uvicorn[standard]  # ASGI server
+python-dotenv  # Load environment variables
+langchain-core # LangChain + LangGraph
+pydantic       # Request validation
