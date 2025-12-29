@@ -11,13 +11,9 @@
       "src": "/(.*)",
       "dest": "backend/app.py"
     }
-  ],
-  "functions": {
-    "backend/app.py": {
-      "runtime": "python3.11"
-    }
-  }
+  ]
 }
+
 
 
 
