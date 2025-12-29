@@ -165,11 +165,12 @@ async function sendMessage() {
       ? { query: message, session_id: sessionId }
       : { prescription: message, session_id: sessionId };
 
-  const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+  const response = await fetch(`https://agentic-ai-patient-chatbot-project.onrender.com/${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
-  });
+});
+
 
   const data = await response.json();
   sessionId = data.session_id;
@@ -202,4 +203,6 @@ function appendSystem(text) {
 
 </body>
 </html>
+
+
 
