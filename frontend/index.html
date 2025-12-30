@@ -114,7 +114,7 @@
 </div>
 
 <script>
-let sessionId = null;
+let messages = [];
 let mode = "chat";
 
 const chatBox = document.getElementById("chat-box");
@@ -123,7 +123,7 @@ const sendBtn = document.getElementById("sendBtn");
 const newSessionBtn = document.getElementById("newSessionBtn");
 
 function isPrescription(text) {
-  return /(take|tablet|pill|medicine|apply|dosage|mg|twice|daily)/i.test(text);
+  return /(take|tablet|pill|medicine|apply|dosage|mg|twice|daily|prescribe)/i.test(text);
 }
 
 sendBtn.onclick = sendMessage;
@@ -141,8 +141,8 @@ async function sendMessage() {
 
   const endpoint = mode === "chat" ? "/api/chat" : "/api/treatment";
   const payload = mode === "chat"
-    ? { user_message: message, session_id: sessionId }
-    : { prescription: message, session_id: sessionId };
+    ? { user_message: message, messages: messages }
+    : { prescription: message, messages: messages };
 
   try {
     const response = await fetch(endpoint, {
@@ -152,28 +152,30 @@ async function sendMessage() {
     });
 
     if (!response.ok) {
-      throw new Error("Server error");
+      throw new Error(`Server returned ${response.status}`);
     }
 
     const data = await response.json();
-    sessionId = data.session_id || null;
+    
+    // Update local message history
+    messages = data.messages || messages;
 
     const reply = data.reply || data.patient_reply || "…";
     append("Patient", reply);
 
     if (data.conversation_end) {
       appendSystem("🟢 Consultation completed.");
-      sessionId = null;
+      messages = [];
       mode = "chat";
     }
   } catch (err) {
-    appendSystem("❌ Error connecting to the server.");
+    appendSystem("❌ Error connecting to the server: " + err.message);
     console.error(err);
   }
 }
 
 async function startNewConsultation() {
-  sessionId = null;
+  messages = [];
   mode = "chat";
   chatBox.innerHTML = "";
 
@@ -181,20 +183,20 @@ async function startNewConsultation() {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: null })
+      body: JSON.stringify({ messages: [] })
     });
 
     if (!response.ok) {
-      throw new Error("Server error");
+      throw new Error(`Server returned ${response.status}`);
     }
 
     const data = await response.json();
-    sessionId = data.session_id || null;
+    messages = data.messages || [];
 
     appendSystem("🔵 New consultation started.");
-    append("Patient", data.reply || "Hello! I’m ready to discuss my symptoms.");
+    append("Patient", data.reply || "Hello! I'm ready to discuss my symptoms.");
   } catch (err) {
-    appendSystem("❌ Error connecting to the server.");
+    appendSystem("❌ Error connecting to the server: " + err.message);
     console.error(err);
   }
 }
@@ -219,6 +221,7 @@ window.onload = startNewConsultation;
 </script>
 </body>
 </html>
+
 
 
 
