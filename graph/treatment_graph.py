@@ -8,66 +8,82 @@ import os
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+
+# ------------------ STATE ------------------
 class TreatmentState(TypedDict):
-    messages: List
+    messages: List[HumanMessage | AIMessage]
     clarification_used: bool
     conversation_end: bool
 
 
+# ------------------ NODE ------------------
 def treatment_node(state: TreatmentState):
-    if state["conversation_end"]:
+    messages = state.get("messages", [])
+    clarification_used = state.get("clarification_used", False)
+    conversation_end = state.get("conversation_end", False)
+
+    if conversation_end:
         return state
 
     groq_messages = []
-    for msg in state["messages"]:
+    for msg in messages:
         role = "user" if isinstance(msg, HumanMessage) else "assistant"
         groq_messages.append({"role": role, "content": msg.content})
 
-    system_prompt = """
-You are a patient responding to a doctor's prescription.
-
-Rules:
-- Respond naturally
-- Ask at most ONE clarification if confused
-- If clarification already used, politely accept
-- Do NOT give medical advice
-"""
-
-    response = client.chat.completions.create(
-        model="groq/compound",
-        messages=[{"role": "system", "content": system_prompt}, *groq_messages]
+    system_prompt = (
+        "You are a patient responding to a doctor's prescription.\n"
+        "Rules:\n"
+        "- Respond naturally like a real patient\n"
+        "- Ask at most ONE clarification if confused\n"
+        "- If clarification already used, politely accept\n"
+        "- Do NOT give medical advice\n"
+        "- Keep replies short\n"
     )
 
-    reply = response.choices[0].message.content.strip()
+    # ---------------- SAFE MODEL CALL ----------------
+    try:
+        response = client.chat.completions.create(
+            model="groq/compound",
+            messages=[{"role": "system", "content": system_prompt}, *groq_messages]
+        )
+        reply = response.choices[0].message.content.strip()
+    except Exception:
+        reply = "Thank you, doctor. I will follow your advice."
 
+    # ---------------- CLARIFICATION LOGIC ----------------
     clarification_triggers = [
         "could you explain",
         "can you clarify",
-        "what does that mean"
+        "what does that mean",
+        "how should i take",
+        "when should i take"
     ]
 
     asked_clarification = any(t in reply.lower() for t in clarification_triggers)
 
-    clarification_used = state["clarification_used"]
-    conversation_end = True
-
     if clarification_used:
         reply = "Thank you, doctor. I understand and will follow your advice."
-
+        conversation_end = True
     elif asked_clarification:
         clarification_used = True
+        conversation_end = False
+    else:
+        conversation_end = True
 
     return {
-        "messages": state["messages"] + [AIMessage(content=reply)],
+        "messages": messages + [AIMessage(content=reply)],
         "clarification_used": clarification_used,
         "conversation_end": conversation_end
     }
 
 
+# ------------------ GRAPH ------------------
 builder = StateGraph(TreatmentState)
 builder.add_node("treatment", treatment_node)
 builder.set_entry_point("treatment")
 builder.add_edge("treatment", END)
 
 treatment_graph = builder.compile()
+
+
 
