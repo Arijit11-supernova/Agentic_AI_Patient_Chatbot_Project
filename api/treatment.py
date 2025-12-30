@@ -1,82 +1,83 @@
 # api/treatment.py
 
 import json
-from utils.session_manager import create_session, get_session
-from graph.patient_graph import patient_graph
+from graph.treatment_graph import treatment_graph
 from langchain_core.messages import HumanMessage, AIMessage
 
 def handler(request):
-    # Only POST allowed
-    if request["method"] != "POST":
-        return {
-            "statusCode": 405,
-            "body": json.dumps({"error": "Only POST method allowed"})
-        }
+    # ✅ Allow only POST
+    if request.method != "POST":
+        return (
+            json.dumps({"error": "Only POST method allowed"}),
+            405,
+            {"Content-Type": "application/json"}
+        )
 
     try:
-        data = json.loads(request["body"])
+        body = request.get_json()
     except Exception:
-        return {
-            "statusCode": 400,
-            "body": json.dumps({"error": "Invalid JSON body"})
-        }
+        return (
+            json.dumps({"error": "Invalid JSON body"}),
+            400,
+            {"Content-Type": "application/json"}
+        )
 
-    prescription = data.get("prescription")
-    session_id = data.get("session_id")
+    prescription = body.get("prescription")
+    messages = body.get("messages", [])
+    clarification_used = body.get("clarification_used", False)
 
-    # Create session if missing
-    if not session_id:
-        session_id = create_session()
-        state = get_session(session_id)
-        greeting = "New session started. Please provide your prescription."
-        state["messages"].append(AIMessage(content=greeting))
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "session_id": session_id,
+    # First call → greeting
+    if not prescription and not messages:
+        greeting = "Please share the prescription given by the doctor."
+        return (
+            json.dumps({
                 "patient_reply": greeting,
-                "conversation_end": state["conversation_end"]
-            })
-        }
+                "conversation_end": False,
+                "clarification_used": False,
+                "messages": [
+                    {"role": "patient", "content": greeting}
+                ]
+            }),
+            200,
+            {"Content-Type": "application/json"}
+        )
 
-    state = get_session(session_id)
-    if not state:
-        session_id = create_session()
-        state = get_session(session_id)
-        greeting = "New session started. Please provide your prescription."
-        state["messages"].append(AIMessage(content=greeting))
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "session_id": session_id,
-                "patient_reply": greeting,
-                "conversation_end": state["conversation_end"]
-            })
-        }
+    # Build LangGraph messages
+    graph_messages = []
+    for m in messages:
+        if m["role"] == "doctor":
+            graph_messages.append(HumanMessage(content=m["content"]))
+        else:
+            graph_messages.append(AIMessage(content=m["content"]))
 
-    # Add prescription as user message
-    state["messages"].append(HumanMessage(content=prescription))
+    # Add prescription as doctor message
+    graph_messages.append(HumanMessage(content=prescription))
 
-    # Invoke patient graph for treatment logic
-    new_state = patient_graph.invoke({
-        "messages": state["messages"],
-        "revealed_symptoms": state["revealed_symptoms"],
-        "conversation_end": state["conversation_end"]
+    # Invoke treatment graph (STATELESS)
+    new_state = treatment_graph.invoke({
+        "messages": graph_messages,
+        "clarification_used": clarification_used,
+        "conversation_end": False
     })
 
-    # Update session
-    state["messages"] = new_state["messages"]
-    state["revealed_symptoms"] = new_state["revealed_symptoms"]
-    state["conversation_end"] = new_state["conversation_end"]
+    reply = new_state["messages"][-1].content
 
-    return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "session_id": session_id,
-            "patient_reply": state["messages"][-1].content,
-            "conversation_end": state["conversation_end"]
-        })
-    }
+    # Update message history
+    messages.append({"role": "doctor", "content": prescription})
+    messages.append({"role": "patient", "content": reply})
+
+    return (
+        json.dumps({
+            "patient_reply": reply,
+            "conversation_end": new_state["conversation_end"],
+            "clarification_used": new_state["clarification_used"],
+            "messages": messages
+        }),
+        200,
+        {"Content-Type": "application/json"}
+    )
+
+
 
 
 
