@@ -1,0 +1,4 @@
+flask==2.3.3
+langchain-core==0.3.75
+groq==1.0.0
+python-dotenv==1.0.0
