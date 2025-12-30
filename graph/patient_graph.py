@@ -12,28 +12,28 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # ------------------ STATE ------------------
 class PatientState(TypedDict):
-    messages: List
+    messages: List[HumanMessage | AIMessage]
     revealed_symptoms: List[str]
     conversation_end: bool
 
 
 # ------------------ NODE ------------------
 def patient_node(state: PatientState):
+    messages = state.get("messages", [])
+    revealed_symptoms = state.get("revealed_symptoms", [])
+    conversation_end = state.get("conversation_end", False)
+
     groq_messages = []
 
-    for msg in state["messages"]:
+    for msg in messages:
         if isinstance(msg, HumanMessage):
             groq_messages.append({"role": "user", "content": msg.content})
         elif isinstance(msg, AIMessage):
             groq_messages.append({"role": "assistant", "content": msg.content})
 
-    # Safe defaults
-    revealed_symptoms = state.get("revealed_symptoms", [])
-    conversation_end = state.get("conversation_end", False)
-
     # Get last doctor message
     last_human_msg = None
-    for msg in reversed(state["messages"]):
+    for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
             last_human_msg = msg.content.lower()
             break
@@ -67,7 +67,7 @@ def patient_node(state: PatientState):
         system_prompt += (
             "\nThe doctor has prescribed a treatment.\n"
             "- Respond politely like a patient.\n"
-            "- Ask ONLY ONE simple clarifying question (dosage, timing, or side effects).\n"
+            "- Ask ONLY ONE simple clarifying question.\n"
             "- After this reply, the conversation must end.\n"
         )
     elif conversation_end:
@@ -76,16 +76,18 @@ def patient_node(state: PatientState):
             "- End the conversation politely in one short sentence.\n"
         )
 
-    # ---------------- MODEL CALL ----------------
-    response = client.chat.completions.create(
-        model="groq/compound",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            *groq_messages
-        ]
-    )
-
-    reply = response.choices[0].message.content.strip()
+    # ---------------- MODEL CALL (SAFE) ----------------
+    try:
+        response = client.chat.completions.create(
+            model="groq/compound",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                *groq_messages
+            ]
+        )
+        reply = response.choices[0].message.content.strip()
+    except Exception as e:
+        reply = "Sorry doctor, could you please repeat that?"
 
     # ---------------- SYMPTOM TRACKING ----------------
     symptom_keywords = ["headache", "tired", "fatigue", "nausea", "dizzy", "cough", "fever"]
@@ -99,7 +101,7 @@ def patient_node(state: PatientState):
         conversation_end = True
 
     return {
-        "messages": state["messages"] + [AIMessage(content=reply)],
+        "messages": messages + [AIMessage(content=reply)],
         "revealed_symptoms": revealed_symptoms + new_symptoms,
         "conversation_end": conversation_end
     }
@@ -112,4 +114,6 @@ builder.set_entry_point("patient")
 builder.add_edge("patient", END)
 
 patient_graph = builder.compile()
+
+
 
