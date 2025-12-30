@@ -130,6 +130,9 @@
 let sessionId = null;
 let mode = "chat";
 
+// ✅ Update this to your Vercel deployment URL
+const API_BASE = "https://agentic-ai-patient-chatbo-git-a01162-arijit-s-projects-3ddbde5b.vercel.app";
+
 const chatBox = document.getElementById("chat-box");
 const input = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
@@ -160,7 +163,7 @@ async function sendMessage() {
     : { prescription: message, session_id: sessionId };
 
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/${endpoint}`, {
+    const response = await fetch(`${API_BASE}/api/${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -189,9 +192,8 @@ async function startNewConsultation() {
   mode = "chat";
   chatBox.innerHTML = "";
 
-  // Call backend to initialize session
   try {
-    const response = await fetch(`http://127.0.0.1:5000/api/chat`, {
+    const response = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: null, user_message: "" })
@@ -230,6 +232,7 @@ window.onload = startNewConsultation;
 </script>
 </body>
 </html>
+
 
 
 
