@@ -57,6 +57,7 @@
       margin-bottom: 15px;
       padding: 12px 16px;
       border-radius: 16px;
+      line-height: 1.4;
     }
     .doctor {
       background: #e3f2fd;
@@ -83,6 +84,7 @@
       border-radius: 20px;
       border: 1px solid #ccc;
       font-size: 15px;
+      outline: none;
     }
     #sendBtn, #newSessionBtn {
       margin-left: 10px;
@@ -149,13 +151,18 @@ async function sendMessage() {
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
-    sessionId = data.session_id;
+    if (!response.ok) {
+      throw new Error("Server error");
+    }
 
-    append("Patient", data.reply || data.patient_reply);
+    const data = await response.json();
+    sessionId = data.session_id || null;
+
+    const reply = data.reply || data.patient_reply || "…";
+    append("Patient", reply);
 
     if (data.conversation_end) {
-      appendSystem("🟢 Consultation completed politely.");
+      appendSystem("🟢 Consultation completed.");
       sessionId = null;
       mode = "chat";
     }
@@ -177,11 +184,15 @@ async function startNewConsultation() {
       body: JSON.stringify({ session_id: null })
     });
 
+    if (!response.ok) {
+      throw new Error("Server error");
+    }
+
     const data = await response.json();
-    sessionId = data.session_id;
+    sessionId = data.session_id || null;
 
     appendSystem("🔵 New consultation started.");
-    append("Patient", data.reply);
+    append("Patient", data.reply || "Hello! I’m ready to discuss my symptoms.");
   } catch (err) {
     appendSystem("❌ Error connecting to the server.");
     console.error(err);
@@ -208,7 +219,6 @@ window.onload = startNewConsultation;
 </script>
 </body>
 </html>
-
 
 
 
