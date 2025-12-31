@@ -3,15 +3,16 @@ from flask_cors import CORS
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from graph.evaluator_graph import evaluator_graph
 
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/', methods=['POST', 'OPTIONS'])
 @app.route('/api/evaluate', methods=['POST', 'OPTIONS'])
-def evaluate_handler():
+def handler():
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -39,10 +40,6 @@ def evaluate_handler():
         "evaluation": result.get("evaluation", {})
     }), 200
 
-# For Vercel
-if __name__ != "__main__":
-    from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
 
