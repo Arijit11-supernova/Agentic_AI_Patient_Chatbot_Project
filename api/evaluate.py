@@ -1,24 +1,31 @@
-# api/evaluate.py
-from flask import Request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from graph.evaluator_graph import evaluator_graph
 
-def handler(request: Request):
-    """Vercel serverless function for evaluation"""
-    if request.method != "POST":
-        return jsonify({"error": "Only POST method allowed"}), 405
+app = Flask(__name__)
+CORS(app)
 
+@app.route('/api/evaluate', methods=['POST', 'OPTIONS'])
+def evaluate_handler():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     try:
         body = request.get_json(force=True)
     except Exception:
         return jsonify({"error": "Invalid JSON body"}), 400
-
+    
     doctor_message = body.get("doctor_message", "").strip()
     patient_history = body.get("patient_history", [])
-
+    
     if not doctor_message:
         return jsonify({"error": "doctor_message is required"}), 400
-
-    # Invoke evaluator graph
+    
     try:
         result = evaluator_graph.invoke({
             "doctor_message": doctor_message,
@@ -27,10 +34,15 @@ def handler(request: Request):
         })
     except Exception as e:
         return jsonify({"error": f"Evaluation failed: {str(e)}"}), 500
-
+    
     return jsonify({
         "evaluation": result.get("evaluation", {})
     }), 200
+
+# For Vercel
+if __name__ != "__main__":
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
 
