@@ -3,7 +3,7 @@ from flask_cors import CORS
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from graph.treatment_graph import treatment_graph
 from langchain_core.messages import HumanMessage, AIMessage
@@ -11,8 +11,9 @@ from langchain_core.messages import HumanMessage, AIMessage
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/', methods=['POST', 'OPTIONS'])
 @app.route('/api/treatment', methods=['POST', 'OPTIONS'])
-def treatment_handler():
+def handler():
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -68,21 +69,6 @@ def treatment_handler():
         "messages": messages
     }), 200
 
-# For Vercel
-if __name__ != "__main__":
-    from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app)
-```
-
-### 4. **Move requirements.txt to api/ folder**:
-Create `/api/requirements.txt` with:
-```
-flask==3.0.0
-flask-cors==4.0.0
-langchain-core==0.3.75
-langgraph==0.2.62
-groq==0.11.0
-python-dotenv==1.0.0
 
 
 
