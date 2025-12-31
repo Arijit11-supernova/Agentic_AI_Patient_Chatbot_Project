@@ -17,9 +17,11 @@
     { "src": "/api/chat", "dest": "api/chat.py" },
     { "src": "/api/evaluate", "dest": "api/evaluate.py" },
     { "src": "/api/treatment", "dest": "api/treatment.py" },
+    { "src": "/", "dest": "frontend/index.html" },
     { "src": "/(.*)", "dest": "frontend/$1" }
   ]
 }
+
 
 
 
