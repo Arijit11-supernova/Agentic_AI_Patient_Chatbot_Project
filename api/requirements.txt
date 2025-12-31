@@ -2,5 +2,6 @@ flask==3.0.0
 flask-cors==4.0.0
 langchain-core==0.3.75
 langgraph==0.2.62
-groq==0.11.0
+groq==0.13.0
 python-dotenv==1.0.0
+httpx==0.27.0
