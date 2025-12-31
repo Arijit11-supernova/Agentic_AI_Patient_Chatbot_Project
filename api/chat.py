@@ -3,8 +3,8 @@ from flask_cors import CORS
 import sys
 import os
 
-# Add parent directory to path so we can import from graph/
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from graph.patient_graph import patient_graph
 from langchain_core.messages import HumanMessage, AIMessage
@@ -12,8 +12,9 @@ from langchain_core.messages import HumanMessage, AIMessage
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/', methods=['POST', 'OPTIONS'])
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
-def chat_handler():
+def handler():
     if request.method == 'OPTIONS':
         return '', 200
     
@@ -69,10 +70,6 @@ def chat_handler():
         "messages": messages
     }), 200
 
-# For Vercel
-if __name__ != "__main__":
-    from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app)
 
 
 
