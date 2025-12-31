@@ -1,22 +1,30 @@
-# api/treatment.py
-from flask import Request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 from graph.treatment_graph import treatment_graph
 from langchain_core.messages import HumanMessage, AIMessage
 
-def handler(request: Request):
-    """Vercel serverless function for treatment"""
-    if request.method != "POST":
-        return jsonify({"error": "Only POST method allowed"}), 405
+app = Flask(__name__)
+CORS(app)
 
+@app.route('/api/treatment', methods=['POST', 'OPTIONS'])
+def treatment_handler():
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     try:
         body = request.get_json(force=True)
     except Exception:
         return jsonify({"error": "Invalid JSON body"}), 400
-
+    
     prescription = body.get("prescription", "").strip()
     messages = body.get("messages", [])
     clarification_used = body.get("clarification_used", False)
-
+    
     # First call → greeting
     if not prescription and not messages:
         greeting = "Please share the prescription given by the doctor."
@@ -26,7 +34,7 @@ def handler(request: Request):
             "clarification_used": False,
             "messages": [{"role": "patient", "content": greeting}]
         }), 200
-
+    
     # Build LangGraph messages
     graph_messages = []
     for m in messages:
@@ -34,12 +42,10 @@ def handler(request: Request):
             graph_messages.append(HumanMessage(content=m.get("content", "")))
         else:
             graph_messages.append(AIMessage(content=m.get("content", "")))
-
-    # Add prescription as doctor message
+    
     if prescription:
         graph_messages.append(HumanMessage(content=prescription))
-
-    # Invoke treatment graph
+    
     try:
         new_state = treatment_graph.invoke({
             "messages": graph_messages,
@@ -48,20 +54,36 @@ def handler(request: Request):
         })
     except Exception as e:
         return jsonify({"error": f"Treatment graph error: {str(e)}"}), 500
-
+    
     reply = new_state["messages"][-1].content
-
-    # Update message history
+    
     if prescription:
         messages.append({"role": "doctor", "content": prescription})
     messages.append({"role": "patient", "content": reply})
-
+    
     return jsonify({
         "patient_reply": reply,
         "conversation_end": new_state.get("conversation_end", False),
         "clarification_used": new_state.get("clarification_used", False),
         "messages": messages
     }), 200
+
+# For Vercel
+if __name__ != "__main__":
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app)
+```
+
+### 4. **Move requirements.txt to api/ folder**:
+Create `/api/requirements.txt` with:
+```
+flask==3.0.0
+flask-cors==4.0.0
+langchain-core==0.3.75
+langgraph==0.2.62
+groq==0.11.0
+python-dotenv==1.0.0
+
 
 
 
